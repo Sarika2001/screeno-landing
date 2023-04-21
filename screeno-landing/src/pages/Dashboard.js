@@ -5,38 +5,94 @@ import '/src/css/sb-admin-2.min.css';
 import '/src/vendor/fontawesome-free/css/all.min.css';
 import '/src/vendor/jquery/jquery.min.js';
 import '/src/vendor/bootstrap/js/bootstrap.bundle.min.js';
+import Modal from "react-bootstrap/Modal";
+import Contract from '/src/Contract';
+import web3Connection from '/src/web3Connection';
+import Button from "react-bootstrap/esm/Button";
 // import Course from './Course';
 
 class Dashboard extends Component{
-    
-    // const [style, setStyle] = useState("navbar-nav bg-gradient-primary sidebar sidebar-dark accordion");
-
-    //     const changeStyle = () => {
-    //         if (style == "navbar-nav bg-gradient-primary sidebar sidebar-dark accordion")
-    //         {
-    //             setStyle("navbar-nav bg-gradient-primary sidebar sidebar-dark accordion toggled");
-    //         }
-    //         else{
-    //             setStyle("navbar-nav bg-gradient-primary sidebar sidebar-dark accordion")
-    //         }
-    //     };
-    //     const changeStyle1 = () => {
-    //         if (style == "navbar-nav bg-gradient-primary sidebar sidebar-dark accordion")
-    //         {
-    //             setStyle("navbar-nav bg-gradient-primary sidebar sidebar-dark accordion toggled1");
-    //         }
-    //         else{
-    //             setStyle("navbar-nav bg-gradient-primary sidebar sidebar-dark accordion")
-    //         }
-    //     };
         constructor(props) {
           super(props);
       
           this.state = {
-            style: "navbar-nav bg-gradient-primary sidebar sidebar-dark accordion"
-          };
+            web3:null,
+            account: "",
+          addCourseContract: null,
+                style: "navbar-nav bg-gradient-primary sidebar sidebar-dark accordion",
+                isModalOpen: false,
+                isFormSubmitted:false,
+                firstDropdownValue: "",
+                secondDropdownValue: "",
+                secondDropdownOptions: [],
+                courses:[]
+              };
+              this.handleAddNewCourseClick = this.handleAddNewCourseClick.bind(this);
+          this.handleModalClose = this.handleModalClose.bind(this);
         }
-      
+        async componentDidMount() {
+            const web3 = await web3Connection();
+    const { addCourseContract } = await Contract(web3);
+    this.setState({ addCourseContract });
+        
+          }
+          addCourseToBlockchain = async (firstDropdownValue, secondDropdownValue) => {
+            try {
+              const web3 = await web3Connection();
+              const {addCourseContract} = this.state;
+            //   const authenticationContract = await getAuthenticationContract(web3);
+              const accounts = await web3.eth.getAccounts();
+              
+              const course = addCourseContract.methods.insertCourse(firstDropdownValue, secondDropdownValue).send({
+                from: accounts[0],
+              });
+              
+              course.then((result) => {
+                console.log("new course is added: ", result);
+                const newCourse = { name: firstDropdownValue, code: secondDropdownValue };
+                this.setState((prevState) => ({
+                    courses: [...prevState.courses, newCourse],
+                }));
+              });
+            } catch (error) {
+              console.error(error);
+            }
+          };
+
+        handleFirstDropdownChange = (event) => {
+            const selectedValue = event.target.value;
+            // based on the selected value, set the options for the second dropdown
+            let secondDropdownOptions = [];
+            if (selectedValue === "option1") {
+              secondDropdownOptions = ["FOM", "Engineering physics", "Chemistry","Engineering drawing","Python"];
+            } else if (selectedValue === "option2") {
+              secondDropdownOptions = ["option2a", "option2b", "option2c"];
+            } else {
+              secondDropdownOptions = ["option3a", "option3b", "option3c"];
+            }
+            this.setState({
+              firstDropdownValue: selectedValue,
+              secondDropdownOptions: secondDropdownOptions
+            });
+          };
+          handleSecondDropdownChange = (event) => {
+            this.setState({ secondDropdownValue: event.target.value });
+          };
+        handleAddNewCourseClick = () => {
+            this.setState({ isModalOpen: true });
+          };
+          handleModalClose() {
+            this.setState({ isModalOpen: false });
+          };
+          handleModalSubmit = () => {
+            // handle the form submission here
+            this.setState({ isFormSubmitted: true });
+            const { firstDropdownValue, secondDropdownValue } = this.state;
+            this.addCourseToBlockchain(firstDropdownValue, secondDropdownValue);
+            alert("we done")
+            console.log("we done bitches");
+            // this.handleModalClose();
+          };
 
 
         changeStyle = () => {
@@ -57,7 +113,8 @@ class Dashboard extends Component{
       
       
     render(){
-        
+        const { isModalOpen, firstDropdownValue, secondDropdownValue,secondDropdownOptions, isFormSubmitted } =
+        this.state;
         return (
             <div>
                 <body id="page-top">
@@ -150,10 +207,50 @@ class Dashboard extends Component{
                                 <div id="collapsePages" className="collapse" aria-labelledby="headingPages" data-parent="#accordionSidebar">
                                     <div className="bg-white py-2 collapse-inner rounded">
                                         <h6 className="collapse-header">Options</h6>
-                                        <a className="collapse-item" href="login.html">Add new course</a>
+                                        {/* <a className="collapse-item" href="login.html">Add new course</a> */}
+                                        <a className="collapse-item"  id="addNewCourse" onClick={this.handleAddNewCourseClick}>
+            Add new course
+          </a>
                                         <a className="collapse-item" href="register.html">Delete course</a>
                                      
                                     </div>
+                                    {isModalOpen && (
+                                        <div>
+                                                <Modal show={isModalOpen} onHide={this.handleModalClose}>
+                                                <Modal.Header closeButton>
+                                                  <Modal.Title>Add New Course</Modal.Title>
+                                                </Modal.Header>
+                                                <Modal.Body>
+                                                  {/* rendering first dropdown */}
+                                                  <select value={firstDropdownValue} onChange={this.handleFirstDropdownChange} >
+                                                        <option value="">Select class</option>
+                                                        <option value="option1">FE</option>
+                                                        <option value="option2">TE</option>
+                                                        <option value="option3">BE</option>
+                                                </select>
+                                                  {/* render the second dropdown here based on the selected value of the first dropdown */}
+            {secondDropdownOptions.length > 0 && (
+               <select value={secondDropdownValue} onChange={this.handleSecondDropdownChange}>
+               {secondDropdownOptions.map((option) => (
+                 <option key={option} value={option}>
+                   {option}
+                 </option>
+               ))}
+             </select>
+            )}
+                                                </Modal.Body>
+                                                <Modal.Footer>
+                                                  <Button variant="secondary" onClick={this.handleModalClose}>
+                                                    Close
+                                                  </Button>
+                                                  <Button variant="primary" onClick={this.handleModalSubmit}>
+                                                    Save Changes
+                                                  </Button>
+                                                </Modal.Footer>
+                                              </Modal>
+        // Render your modal here
+        </div>
+      )}
                                 </div>
                                 <hr className='sidebar-divider'/>
                                 <div className="sidebar-heading">
